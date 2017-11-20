@@ -1,0 +1,279 @@
+#!/bin/bash
+# chkconfig: 345 92 08
+# description: Starts and stops the Etherest java application
+# processname: etherest
+# default config: /usr/lib/etherest/config/etherest_cfg.json
+# ----------------------------------------------------------------------
+USER=oracle
+. /etc/rc.d/init.d/functions
+. /home/oracle/.bash_profile
+
+#Set variables
+APP_HOME="/usr/lib/etherest"
+SERVICE_NAME=etherest
+SHELL=/bin/bash
+PID_DIR_DEF=/var/run/etherest
+PID_FILE=etherest.pid
+CONFIG_DEF=/usr/lib/etherest/config/etherest_cfg.json
+UIAPP_URL_DEF=http://127.0.0.1:13085
+JAVA_OPTS_DEF="-Xmx512m -Xms16m -Djava.io.tmpdir=/tmp -Dlogfile.name=$SERVICE_NAME"
+JAR_PATH=/usr/lib/etherest/etherest-1.0.jar
+
+#Try to override variables from config
+if [ -f /etc/sysconfig/${SERVICE_NAME}.conf ]; then
+. /etc/sysconfig/${SERVICE_NAME}.conf
+fi
+
+declare -i START_TIMEOUT_default=60
+: ${START_TIMEOUT=${START_TIMEOUT_default}}
+: ${STOP_TIMEOUT=${START_TIMEOUT_default}}
+: ${CONFIG=${CONFIG_DEF}}
+: ${PID_DIR=${PID_DIR_DEF}}
+: ${UIAPP_URL=${UIAPP_URL_DEF}}
+: ${JAVA_OPTS=${JAVA_OPTS_DEF}}
+
+
+#Init pid environment
+PID_PATH_NAME=$PID_DIR/$PID_FILE
+mkdir -p $PID_DIR
+chown -Rf $USER $PID_DIR
+
+kill_proc()
+{
+    if [ -f $PID_PATH_NAME ]; then
+      PID=`cat $PID_PATH_NAME`
+      if [ -d /proc/$PID ]; then
+        kill -9 $PID
+        MSG=""
+      else
+        MSG="$SERVICE_NAME process not found."
+      fi
+      rm -f $PID_PATH_NAME
+    else
+      MSG="$SERVICE_NAME is not running."
+    fi
+
+    if [[ $1 = "echo_status" ]]; then
+      echo -n $MSG
+    fi
+    RETVAL=0
+    return $RETVAL
+}
+
+selftest()
+{
+    RETVAL=""
+    MSG=""
+    if [ -f $PID_PATH_NAME ]; then
+      PID=`cat $PID_PATH_NAME`
+      if [ -d /proc/$PID ]; then
+        #program is running or service is OK
+
+        ANSWER=`curl -s $UIAPP_URL/rest/self_test`
+
+        if [[ $ANSWER == "OK" ]]; then
+          MSG="$SERVICE_NAME service is running."
+          RETVAL=0
+        else
+          MSG="$SERVICE_NAME not responding."
+          RETVAL=4
+        fi
+
+      else
+        #program is dead and pid file exists
+        MSG="$SERVICE_NAME process not found."
+        RETVAL=1
+      fi
+    else
+      #program is not running
+      MSG="$SERVICE_NAME is not running."
+      RETVAL=3
+    fi
+
+    if [[ $1 = "echo_status" ]]; then
+      echo $MSG
+    fi
+
+    return $RETVAL
+}
+
+watchdog()
+{
+    selftest
+    RETVAL=$?
+    if [ $RETVAL -eq 1 ]; then
+      start
+    fi
+}
+
+start()
+{
+    echo -n "Starting $SERVICE_NAME"
+    status -p $PID_PATH_NAME $SERVICE_NAME &> /dev/null
+    RETVAL=$?
+
+    if [ $RETVAL -eq 0 ]; then
+
+      success "$SERVICE_NAME"
+      echo "$SERVICE_NAME is already running"
+      return $RETVAL
+
+    else
+
+      #try to kill process
+      kill_proc
+
+      #run main tread
+      su - $USER -c "nohup java $JAVA_OPTS -jar $JAR_PATH -p $PID_PATH_NAME -c $CONFIG >/dev/null &" >/dev/null 2>&1
+      RETVAL=$?
+
+      #wait until application starts
+      for ((var=1; var <= $START_TIMEOUT ; var++))
+      do
+        echo -n "."
+        sleep 1s
+        selftest
+        RETVAL=$?
+        if [ $RETVAL -eq 0 ]; then
+          break
+        fi
+      done
+
+      #echo result
+      if [ $RETVAL -eq 0 ]; then
+        success "$SERVICE_NAME"
+        echo
+      else
+        kill_proc
+        failure "$SERVICE_NAME"
+        echo
+      fi
+
+    fi
+
+    return $RETVAL
+}
+
+stop()
+{
+    echo -n "Stopping $SERVICE_NAME... "
+    status -p $PID_PATH_NAME $SERVICE_NAME &> /dev/null
+    RETVAL=$?
+    if [ $RETVAL -eq 3 ]; then
+        success "$SERVICE_NAME"
+        echo "$SERVICE_NAME is already stopped"
+        RETVAL=0
+        return $RETVAL
+    fi
+
+    `curl -s $UIAPP_URL/rest/shutdown`
+
+    #wait until application stops
+    for ((var=1; var <= $STOP_TIMEOUT ; var++))
+    do
+      echo -n "."
+      sleep 1s
+      selftest
+      RETVAL=$?
+      if [ $RETVAL -ne 0 ]; then
+        break
+      fi
+    done
+
+    status -p $PID_PATH_NAME $SERVICE_NAME &> /dev/null
+    RETVAL=$?
+    if [ $RETVAL -eq 3 ]; then
+      success "$SERVICE_NAME"
+      echo
+      RETVAL=0
+      return $RETVAL
+    else
+      kill_proc
+      success "$SERVICE_NAME"
+      echo
+    fi
+
+    return 0
+}
+
+reload()
+{
+    echo -n "Reload $SERVICE_NAME: "
+    curl $UIAPP_URL/rest/reconfig?config=$CONFIG
+
+    status -p $PID_PATH_NAME $SERVICE_NAME &> /dev/null
+    RETVAL=$?
+
+    if [ $RETVAL -eq 0 ]; then
+      success "$SERVICE_NAME"
+      echo
+    else
+      failure "$SERVICE_NAME"
+      echo
+    fi
+
+    return $RETVAL
+}
+
+version()
+{
+    RETVAL=""
+    MSG=""
+    if [ -f $PID_PATH_NAME ]; then
+      PID=`cat $PID_PATH_NAME`
+      if [ -d /proc/$PID ]; then
+        #program is running or service is OK
+
+        MSG=`curl -s $UIAPP_URL/rest/version`
+        RETVAL=0
+
+      else
+        #program is dead and pid file exists
+        MSG="$SERVICE_NAME process not found."
+        RETVAL=1
+      fi
+    else
+      #program is not running
+      MSG="$SERVICE_NAME is not running."
+      RETVAL=3
+    fi
+
+    if [[ $1 = "echo_version" ]]; then
+      echo $(basename "$JAR_PATH" .jar).r$MSG
+    fi
+
+    return $RETVAL
+}
+
+case $1 in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    status -p $PID_PATH_NAME $SERVICE_NAME
+    ;;
+  selftest)
+    selftest echo_status
+    ;;
+  version)
+    version echo_version
+    ;;
+  restart)
+    stop
+    start
+    ;;
+  reload)
+    reload
+    ;;
+  watchdog)
+    watchdog
+    ;;
+  *)
+    echo "Usage: $0 [start|stop|restart|reload|status|selftest|version]"
+    ;;
+esac
+
+exit $RETVAL

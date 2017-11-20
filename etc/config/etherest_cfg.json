@@ -1,0 +1,24 @@
+{
+  "botToken": "SPECIFY",
+  "botName": "SPECIFY",
+  "botUsername": "SPECIFY",
+
+  "supportedLang": "en,ru",
+
+  "operatorChats": "0,-1",
+
+  "portRestListener": 13085,
+  "restListenerPoolSize": 10,
+
+  "logRedisDataFlow": true,
+  "logHttpRequests": true,
+  "logHttpResponses": true,
+  "logRestRequests": true,
+  "logRestResponses": true,
+  "logRestConnectedClient": true,
+  "logBotRequests": true,
+  "logBotReplies": true,
+
+  "redisHost": "127.0.0.1",
+  "redisPort": 6382
+}

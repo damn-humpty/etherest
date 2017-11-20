@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorInterval="60">
+    <Properties>
+        <Property name="log-path">${log_path}</Property>
+        <Property name="archive">${log-path}/archive</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console-Appender" target="SYSTEM_OUT">
+            <PatternLayout>
+                <pattern>
+                    [%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{-10} - %markerSimpleName - %msg%n
+                </pattern>>
+            </PatternLayout>
+        </Console>
+        <RollingFile name="RollingFile-Appender"
+                     fileName="${log-path}/${sys:logfile.name}.log"
+                     filePattern="${archive}/${sys:logfile.name}.log.%d{yyyy-MM-dd-hh-mm}.gz">
+            <PatternLayout pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %C{-10} - %markerSimpleName - %msg%n"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="30 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="net.wizards.etherest" additivity="true">
+            <AppenderRef ref="RollingFile-Appender"/>
+        </Logger>
+        <Root level="debug">
+            <AppenderRef ref="Console-Appender"/>
+        </Root>
+    </Loggers>
+</Configuration>
