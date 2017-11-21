@@ -4,6 +4,7 @@
   "botUsername": "SPECIFY",
 
   "supportedLang": "en,ru",
+  "defaultLang": "en",
 
   "operatorChats": "0,-1",
 
@@ -20,5 +21,6 @@
   "logBotReplies": true,
 
   "redisHost": "127.0.0.1",
-  "redisPort": 6382
+  "redisPort": 6382,
+  "clientDataExpiry": 31536000
 }

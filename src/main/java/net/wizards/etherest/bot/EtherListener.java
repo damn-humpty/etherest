@@ -1,12 +1,10 @@
 package net.wizards.etherest.bot;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.UpdatesListener;
-import com.pengrad.telegrambot.model.CallbackQuery;
-import com.pengrad.telegrambot.model.Message;
-import com.pengrad.telegrambot.model.MessageEntity;
-import com.pengrad.telegrambot.model.Update;
+import com.pengrad.telegrambot.model.*;
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.ParseMode;
@@ -15,6 +13,8 @@ import com.pengrad.telegrambot.request.SendMessage;
 import net.wizards.etherest.Config;
 import net.wizards.etherest.bot.annotation.Callback;
 import net.wizards.etherest.bot.annotation.Command;
+import net.wizards.etherest.bot.dom.Client;
+import net.wizards.etherest.database.Redis;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
@@ -22,14 +22,21 @@ import org.apache.logging.log4j.MarkerManager;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static net.wizards.etherest.util.Misc.nvl;
+
 public class EtherListener implements UpdatesListener {
     private final TelegramBot bot;
     private Config cfg;
+    private Redis redis;
+
+    private static Type typeMap = new TypeToken<HashMap<String, String>>(){}.getType();
+
     private static Map<MappingKey, MappingValue> cmdWorkers = new HashMap<>();
     private static Map<MappingKey, MappingValue> cbWorkers = new HashMap<>();
 
@@ -39,16 +46,11 @@ public class EtherListener implements UpdatesListener {
     private static final Logger logger = LogManager.getLogger();
     private static final Marker TAG_CLASS = MarkerManager.getMarker(EtherBot.class.getSimpleName());
 
-    private static Map<String, String> langMap = new HashMap<>();
-    static {
-        langMap.put("en", new String(new int[] {0x1F1EC, 0x1F1E7}, 0, 2) + "ENG");
-        langMap.put("ru", new String(new int[] {0x1F1F7, 0x1F1FA}, 0, 2) + "РУС");
-    }
-
     EtherListener(TelegramBot bot) {
         this.bot = bot;
         cfg = Config.get();
         initWorkerMappings();
+        redis = Redis.getInstance();
     }
 
     private void initWorkerMappings() {
@@ -79,7 +81,9 @@ public class EtherListener implements UpdatesListener {
                     List<String> query = Arrays.asList(callbackQuery.data().split(" "));
                     MappingValue mappingValue = cbWorkers.get(new MappingKey(query.get(0)));
                     if (mappingValue != null) {
-                        mappingValue.method.invoke(this, callbackQuery, query.subList(1, query.size()));
+                        User user = callbackQuery.from();
+                        Client client = nvl(readClient(user.id()), Client.from(user));
+                        mappingValue.method.invoke(this, client, callbackQuery, query.subList(1, query.size()));
                     } else {
                         logger.info(TAG_CLASS, "Unknown callback: " + query);
                     }
@@ -89,7 +93,9 @@ public class EtherListener implements UpdatesListener {
                             String cmd = message.text().substring(messageEntity.offset() + 1, messageEntity.length());
                             MappingValue mappingValue = cmdWorkers.get(new MappingKey(cmd));
                             if (mappingValue != null) {
-                                mappingValue.method.invoke(this, message);
+                                User user = message.from();
+                                Client client = nvl(readClient(user.id()), Client.from(user));
+                                mappingValue.method.invoke(this, client, message);
                             } else {
                                 logger.info(TAG_CLASS, "Unknown command: " + cmd);
                             }
@@ -106,88 +112,45 @@ public class EtherListener implements UpdatesListener {
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
     }
 
-/*
-                String[] callbackData = callbackQuery.data().split(" ");
-                switch (callbackData[0]) {
-                    case "lang":
-                        EditMessageText editMessageText =
-                                new EditMessageText(
-                                        callbackQuery.message().chat().id(),
-                                        callbackQuery.message().messageId(),
-                                        "Current language set to: " + callbackData[1]);
-                        bot.execute(editMessageText);
-                        break;
-                    default:
-                        break;
-                }
- */
+    private Client readClient(int id) {
+        final String key = "client:" + id;
+        return redis.exists(key) ? new Gson().fromJson(redis.get(key), Client.class) : null;
+    }
 
-/*
-                User user = message.from();
-                Chat chat = message.chat();
-                Instant date = Instant.ofEpochSecond(message.date());
-                String text = message.text();
-                for (MessageEntity messageEntity : message.entities()) {
-                    if (messageEntity.type() == MessageEntity.Type.bot_command) {
-                        switch (text.substring(messageEntity.offset(), messageEntity.length())) {
-                            case "/lang1":
-                                System.out.println("/lang");
-                                SendMessage request = new SendMessage(chat.id(), "Select language")
-                                        .parseMode(ParseMode.HTML)
-                                        //.disableWebPagePreview(true)
-                                        //.disableNotification(true)
-                                        //.replyToMessageId(message.messageId())
-                                        .replyMarkup(new ReplyKeyboardMarkup(
-                                                new String[]{"RUS", "ENG"})
-                                                .oneTimeKeyboard(true)   // optional
-                                                .resizeKeyboard(true)    // optional
-                                                .selective(true));
-                                SendResponse sendResponse = bot.execute(request);
-                                break;
-                            case "/lang":
-                                SendMessage request1 = new SendMessage(message.from().id(),
-                                        "Current language: " + langMap.get(user.languageCode()))
-                                        .parseMode(ParseMode.HTML)
-                                        .disableWebPagePreview(false)
-                                        .disableNotification(true)
-                                        .replyMarkup(getInlineKeyboardMarkup(langMap));
-                                bot.execute(request1);
-                                break;
-                            default:
-                                System.out.println("Unknown command");
-                                break;
-                        }
-                    }
-                }
-            }
- */
+    private void writeClient(Client client) {
+        final String key = "client:" + client.getId();
+        redis.set(key, new Gson().toJson(client), cfg.getClientDataExpiry());
+    }
 
     @SuppressWarnings("unused")
     @Command("lang")
-    private void langCommand(Message message) {
-        SendMessage request = new SendMessage(message.from().id(),
-                "Current language: " + langMap.get(message.from().languageCode()))
+    private void langCommand(Client client, Message message) {
+        ResourceBundle resourceBundle = ResourceBundle.getBundle("strings", new Locale(client.getLangCode()));
+        String msgBody = resourceBundle.getString("lang_message");
+        SendMessage request = new SendMessage(message.from().id(), msgBody)
                 .parseMode(ParseMode.HTML)
                 .disableWebPagePreview(false)
                 .disableNotification(true)
-                .replyMarkup(getInlineKeyboardMarkup(langMap));
+                .replyMarkup(getInlineKeyboardMarkup(resourceBundle.getString("lang_keyboard")));
         bot.execute(request);
     }
 
     @SuppressWarnings("unused")
     @Callback("lang")
-    private void langCallback(CallbackQuery query, List<String> args) {
+    private void langCallback(Client client, CallbackQuery query, List<String> args) {
+        client.setLangCode(args.get(0));
+        writeClient(client);
+        ResourceBundle resourceBundle = ResourceBundle.getBundle("strings", new Locale(client.getLangCode()));
+        String msgBody = resourceBundle.getString("lang_message");
         EditMessageText editMessageText =
-                new EditMessageText(
-                        query.message().chat().id(),
-                        query.message().messageId(),
-                        "Current language set to: " + langMap.get(args.get(0)));
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML);
         bot.execute(editMessageText);
     }
 
     @SuppressWarnings("unused")
     @Command("debug")
-    private void debugCommand(Message message) {
+    private void debugCommand(Client client, Message message) {
         String msg = "Current exchange rate is {net.wizards.etherest.bot.EnvVariables.getBtc2Eth();}.";
         SendMessage request = new SendMessage(message.chat().id(), replaceMarkers(msg))
                 .parseMode(ParseMode.HTML)
@@ -237,7 +200,8 @@ public class EtherListener implements UpdatesListener {
         return sb2.toString();
     }
 
-    private InlineKeyboardMarkup getInlineKeyboardMarkup(Map<String, String> mMap) {
+    private InlineKeyboardMarkup getInlineKeyboardMarkup(String mapSerialized) {
+        Map<String, String> mMap = new Gson().fromJson(mapSerialized, typeMap);
         return new InlineKeyboardMarkup(mMap.entrySet().stream()
                 .map(e -> new InlineKeyboardButton(e.getValue()).callbackData("lang " + e.getKey()))
                 .collect(Collectors.toList())

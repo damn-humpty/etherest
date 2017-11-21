@@ -21,6 +21,7 @@ public class Config {
     private String botUsername;
 
     private String supportedLang;
+    private String defaultLang;
 
     private String operatorChats;
 
@@ -36,7 +37,8 @@ public class Config {
     private Boolean logBotMessages;
 
     private String redisHost;
-    private int redisPort;
+    private Integer redisPort;
+    private Integer clientDataExpiry;
     private String redisPassword;
 
     private String trustedIp;
@@ -45,6 +47,14 @@ public class Config {
 
     private static final Logger logger = LogManager.getLogger();
     private static final Marker TAG_CLASS = MarkerManager.getMarker(Config.class.getSimpleName());
+
+    public Integer getClientDataExpiry() {
+        return clientDataExpiry;
+    }
+
+    public String getDefaultLang() {
+        return defaultLang;
+    }
 
     public String getSupportedLang() {
         return supportedLang;
@@ -146,6 +156,7 @@ public class Config {
         botUsername = nvl(config.getBotUsername(), botUsername);
 
         supportedLang = nvl(config.getSupportedLang(), supportedLang);
+        defaultLang = nvl(config.getDefaultLang(), defaultLang);
 
         operatorChats = nvl(config.getOperatorChats(), operatorChats);
 
@@ -160,6 +171,7 @@ public class Config {
 
         redisHost = nvl(config.getRedisHost(), redisHost);
         redisPort = nvl(config.getRedisPort(), redisPort);
+        clientDataExpiry = nvl(config.getClientDataExpiry(), clientDataExpiry);
         redisPassword = nvl(config.getRedisPassword(), redisPassword);
 
         trustedIp = nvl(config.getTrustedIp(), trustedIp);
