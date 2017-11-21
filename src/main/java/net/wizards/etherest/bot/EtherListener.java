@@ -22,10 +22,7 @@ import org.apache.logging.log4j.MarkerManager;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -36,7 +33,8 @@ public class EtherListener implements UpdatesListener {
     private static Map<MappingKey, MappingValue> cmdWorkers = new HashMap<>();
     private static Map<MappingKey, MappingValue> cbWorkers = new HashMap<>();
 
-    private static final Pattern markerPattern = Pattern.compile("\\{([\\w\\.]+)\\.(\\w+)\\(\\);\\}");
+    private static final Pattern markerPatternCall = Pattern.compile("\\{([\\w\\.]+)\\.(\\w+)\\(\\);\\}");
+    private static final Pattern markerPatternProp = Pattern.compile("\\{([\\w_]+)\\.([\\w_]+);\\}");
 
     private static final Logger logger = LogManager.getLogger();
     private static final Marker TAG_CLASS = MarkerManager.getMarker(EtherBot.class.getSimpleName());
@@ -199,7 +197,11 @@ public class EtherListener implements UpdatesListener {
     }
 
     private String replaceMarkers(String msg) {
-        Matcher matcher = markerPattern.matcher(msg);
+        return replaceMarkers(msg, Locale.getDefault());
+    }
+
+    private String replaceMarkers(String msg, Locale chatLocale) {
+        Matcher matcher = markerPatternCall.matcher(msg);
         StringBuffer sb = new StringBuffer();
         while (matcher.find()) {
             if (matcher.groupCount() == 2) {
@@ -217,7 +219,22 @@ public class EtherListener implements UpdatesListener {
             }
         }
         matcher.appendTail(sb);
-        return sb.toString();
+
+        matcher = markerPatternProp.matcher(sb.toString());
+        StringBuffer sb2 = new StringBuffer();
+        while (matcher.find()) {
+            if (matcher.groupCount() == 2) {
+                try {
+                    String replacement = ResourceBundle.getBundle(matcher.group(1), chatLocale).getString(matcher.group(2));
+                    matcher.appendReplacement(sb2, replacement);
+                } catch (MissingResourceException e) {
+                    logger.error(TAG_CLASS, "Error replacing marker " + matcher.group(0), e);
+                }
+            }
+        }
+        matcher.appendTail(sb2);
+
+        return sb2.toString();
     }
 
     private InlineKeyboardMarkup getInlineKeyboardMarkup(Map<String, String> mMap) {
