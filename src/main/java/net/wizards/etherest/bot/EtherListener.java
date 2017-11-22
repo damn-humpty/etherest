@@ -118,12 +118,15 @@ public class EtherListener implements UpdatesListener {
 
     private Client readClient(int id) {
         final String key = "client:" + id;
-        return redis.exists(key) ? new Gson().fromJson(redis.get(key), Client.class) : null;
+        Client client = redis.exists(key) ? new Gson().fromJson(redis.get(key), Client.class) : null;
+        logger.debug(TAG_CLASS, "Client read from Redis: " + client);
+        return client;
     }
 
     private void writeClient(Client client) {
         final String key = "client:" + client.getId();
         redis.set(key, new Gson().toJson(client), cfg.getClientDataExpiry());
+        logger.debug(TAG_CLASS, "Client written to Redis: " + client);
     }
 
     @SuppressWarnings("unused")
@@ -139,9 +142,71 @@ public class EtherListener implements UpdatesListener {
     }
 
     @SuppressWarnings("unused")
+    @Command("settings")
+    private void settings(Client client, Message message) {
+        String msgBody = String.format(res.str(client.getLangCode(), "settings_message"),
+                nvl(client.getWalletId(), res.str(client.getLangCode(), "no_wallet")));
+        logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
+        SendMessage request = new SendMessage(message.from().id(), msgBody)
+                .parseMode(ParseMode.HTML)
+                .disableWebPagePreview(false)
+                .disableNotification(true)
+                .replyMarkup(getInlineKeyboardMarkup(res.kb(client.getLangCode(), "settings")));
+        bot.execute(request);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_settings")
+    private void settings(Client client, CallbackQuery query, List<String> args) {
+        String msgBody = String.format(res.str(client.getLangCode(), "settings_message"),
+                nvl(client.getWalletId(), res.str(client.getLangCode(), "no_wallet")));
+        logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
+        EditMessageText editMessageText =
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML)
+                        .replyMarkup(getInlineKeyboardMarkup(res.kb(client.getLangCode(), "settings")));
+        bot.execute(editMessageText);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_settings_lang")
+    private void settingsLang(Client client, CallbackQuery query, List<String> args) {
+        langLang(client, query, args);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_settings_wallet")
+    private void settingsWallet(Client client, CallbackQuery query, List<String> args) {
+        if (args!= null && !args.isEmpty()) {
+            client.setLangCode(args.get(0));
+        }
+        String msgBody = String.format(res.str(client.getLangCode(), "wallet_message"),
+                nvl(client.getWalletId(), res.str(client.getLangCode(), "no_wallet")));
+        EditMessageText editMessageText =
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML)
+                        .replyMarkup(getInlineKeyboardMarkup(res.kb(client.getLangCode(), "wallet")));
+        bot.execute(editMessageText);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_wallet_back")
+    private void walletBack(Client client, CallbackQuery query, List<String> args) {
+        settings(client, query, args);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_lang_back")
+    private void langBack(Client client, CallbackQuery query, List<String> args) {
+        settings(client, query, args);
+    }
+
+    @SuppressWarnings("unused")
     @Callback("on_lang_lang")
-    private void langCallback(Client client, CallbackQuery query, List<String> args) {
-        client.setLangCode(args.get(0));
+    private void langLang(Client client, CallbackQuery query, List<String> args) {
+        if (args!= null && !args.isEmpty()) {
+            client.setLangCode(args.get(0));
+        }
         String msgBody = res.str(client.getLangCode(), "lang_message");
         EditMessageText editMessageText =
                 new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
@@ -152,7 +217,7 @@ public class EtherListener implements UpdatesListener {
 
     @SuppressWarnings("unused")
     @Command("debug")
-    private void debugCommand(Client client, Message message) {
+    private void debug(Client client, Message message) {
         String msg = "Current exchange rate is {net.wizards.etherest.bot.EnvVariables.getBtc2Eth();}.";
         SendMessage request = new SendMessage(message.chat().id(), replaceMarkers(msg))
                 .parseMode(ParseMode.HTML)
@@ -203,6 +268,7 @@ public class EtherListener implements UpdatesListener {
     }
 
     private InlineKeyboardMarkup getInlineKeyboardMarkup(List<Map<String, String>> markup) {
+        logger.debug(TAG_CLASS, "Keyboard markup: " + markup.toString());
         InlineKeyboardButton[][] keyboardButtons = markup.stream()
                 .map(row -> row.entrySet().stream()
                         .map(e -> new InlineKeyboardButton(e.getValue()).callbackData(e.getKey()))

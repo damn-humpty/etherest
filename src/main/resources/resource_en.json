@@ -1,6 +1,9 @@
 {
   "msg": {
-    "lang_message": "<b>Language</b>\n\nCurrent language: 🇬🇧ENG"
+    "lang_message": "<b>Language</b>\n\nCurrent language: 🇬🇧ENG",
+    "settings_message": "<b>Settings</b>\n\nLanguage: 🇬🇧ENG\nWallet: %s",
+    "no_wallet": "not configured",
+    "wallet_message": "<b>Wallet</b>\n\nCurrent wallet: %s"
   },
   "kb": {
     "lang": [
@@ -10,6 +13,21 @@
       },
       {
         "on_lang_back": "<<Back"
+      }
+    ],
+    "settings": [
+      {
+        "on_settings_lang": "🌍Language",
+        "on_settings_wallet": "👛Wallet"
+      },
+      {
+        "on_lang_back": "<<Back"
+      }
+    ],
+    "wallet": [
+      {
+        "on_wallet_change": "📝Change",
+        "on_wallet_back": "<<Back"
       }
     ]
   }

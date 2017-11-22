@@ -15,7 +15,7 @@ public class Client {
     private String langCode;
     private String walletId;
 
-    private boolean modified;
+    transient private boolean modified;
 
     public Client() {
     }
