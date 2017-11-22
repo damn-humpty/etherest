@@ -1,0 +1,16 @@
+{
+  "msg": {
+    "lang_message": "<b>Language</b>\n\nCurrent language: 🇬🇧ENG"
+  },
+  "kb": {
+    "lang": [
+      {
+        "on_lang_lang en": "🇬🇧ENG",
+        "on_lang_lang ru": "🇷🇺РУС"
+      },
+      {
+        "on_lang_back": "<<Back"
+      }
+    ]
+  }
+}

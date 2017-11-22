@@ -1,7 +1,6 @@
 package net.wizards.etherest.bot;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import com.pengrad.telegrambot.TelegramBot;
 import com.pengrad.telegrambot.UpdatesListener;
 import com.pengrad.telegrambot.model.*;
@@ -14,6 +13,7 @@ import net.wizards.etherest.Config;
 import net.wizards.etherest.bot.annotation.Callback;
 import net.wizards.etherest.bot.annotation.Command;
 import net.wizards.etherest.bot.dom.Client;
+import net.wizards.etherest.bot.dom.Resources;
 import net.wizards.etherest.database.Redis;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,7 +22,6 @@ import org.apache.logging.log4j.MarkerManager;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,8 +33,7 @@ public class EtherListener implements UpdatesListener {
     private final TelegramBot bot;
     private Config cfg;
     private Redis redis;
-
-    private static Type typeMap = new TypeToken<HashMap<String, String>>(){}.getType();
+    private Resources res;
 
     private static Map<MappingKey, MappingValue> cmdWorkers = new HashMap<>();
     private static Map<MappingKey, MappingValue> cbWorkers = new HashMap<>();
@@ -51,6 +49,8 @@ public class EtherListener implements UpdatesListener {
         cfg = Config.get();
         initWorkerMappings();
         redis = Redis.getInstance();
+
+        res = new Resources(cfg.getDefaultLang());
     }
 
     private void initWorkerMappings() {
@@ -77,12 +77,13 @@ public class EtherListener implements UpdatesListener {
             CallbackQuery callbackQuery = update.callbackQuery();
 
             try {
+                Client client = null;
                 if (callbackQuery != null) {
                     List<String> query = Arrays.asList(callbackQuery.data().split(" "));
                     MappingValue mappingValue = cbWorkers.get(new MappingKey(query.get(0)));
                     if (mappingValue != null) {
                         User user = callbackQuery.from();
-                        Client client = nvl(readClient(user.id()), Client.from(user));
+                        client = nvl(readClient(user.id()), Client.from(user));
                         mappingValue.method.invoke(this, client, callbackQuery, query.subList(1, query.size()));
                     } else {
                         logger.info(TAG_CLASS, "Unknown callback: " + query);
@@ -94,13 +95,16 @@ public class EtherListener implements UpdatesListener {
                             MappingValue mappingValue = cmdWorkers.get(new MappingKey(cmd));
                             if (mappingValue != null) {
                                 User user = message.from();
-                                Client client = nvl(readClient(user.id()), Client.from(user));
+                                client = nvl(readClient(user.id()), Client.from(user));
                                 mappingValue.method.invoke(this, client, message);
                             } else {
                                 logger.info(TAG_CLASS, "Unknown command: " + cmd);
                             }
                         }
                     }
+                }
+                if (client != null && client.isModified()) {
+                    writeClient(client);
                 }
             } catch (InvocationTargetException e) {
                 logger.error(TAG_CLASS, "Internal exception", e);
@@ -125,26 +129,24 @@ public class EtherListener implements UpdatesListener {
     @SuppressWarnings("unused")
     @Command("lang")
     private void langCommand(Client client, Message message) {
-        ResourceBundle resourceBundle = ResourceBundle.getBundle("strings", new Locale(client.getLangCode()));
-        String msgBody = resourceBundle.getString("lang_message");
+        String msgBody = res.str(client.getLangCode(), "lang_message");
         SendMessage request = new SendMessage(message.from().id(), msgBody)
                 .parseMode(ParseMode.HTML)
                 .disableWebPagePreview(false)
                 .disableNotification(true)
-                .replyMarkup(getInlineKeyboardMarkup(resourceBundle.getString("lang_keyboard")));
+                .replyMarkup(getInlineKeyboardMarkup(res.kb(client.getLangCode(), "lang")));
         bot.execute(request);
     }
 
     @SuppressWarnings("unused")
-    @Callback("lang")
+    @Callback("on_lang_lang")
     private void langCallback(Client client, CallbackQuery query, List<String> args) {
         client.setLangCode(args.get(0));
-        writeClient(client);
-        ResourceBundle resourceBundle = ResourceBundle.getBundle("strings", new Locale(client.getLangCode()));
-        String msgBody = resourceBundle.getString("lang_message");
+        String msgBody = res.str(client.getLangCode(), "lang_message");
         EditMessageText editMessageText =
                 new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
-                        .parseMode(ParseMode.HTML);
+                        .parseMode(ParseMode.HTML)
+                        .replyMarkup(getInlineKeyboardMarkup(res.kb(client.getLangCode(), "lang")));
         bot.execute(editMessageText);
     }
 
@@ -200,12 +202,14 @@ public class EtherListener implements UpdatesListener {
         return sb2.toString();
     }
 
-    private InlineKeyboardMarkup getInlineKeyboardMarkup(String mapSerialized) {
-        Map<String, String> mMap = new Gson().fromJson(mapSerialized, typeMap);
-        return new InlineKeyboardMarkup(mMap.entrySet().stream()
-                .map(e -> new InlineKeyboardButton(e.getValue()).callbackData("lang " + e.getKey()))
-                .collect(Collectors.toList())
-                .toArray(new InlineKeyboardButton[0]));
+    private InlineKeyboardMarkup getInlineKeyboardMarkup(List<Map<String, String>> markup) {
+        InlineKeyboardButton[][] keyboardButtons = markup.stream()
+                .map(row -> row.entrySet().stream()
+                        .map(e -> new InlineKeyboardButton(e.getValue()).callbackData(e.getKey()))
+                        .collect(Collectors.toList())
+                        .toArray(new InlineKeyboardButton[0]))
+                .toArray(InlineKeyboardButton[][]::new);
+        return new InlineKeyboardMarkup(keyboardButtons);
     }
 
     private static class MappingKey {

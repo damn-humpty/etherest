@@ -5,6 +5,8 @@ import com.pengrad.telegrambot.model.User;
 import net.wizards.etherest.Config;
 import net.wizards.etherest.util.Misc;
 
+import java.util.Objects;
+
 public class Client {
     private int id;
     private String firstName;
@@ -12,6 +14,8 @@ public class Client {
     private String userName;
     private String langCode;
     private String walletId;
+
+    private boolean modified;
 
     public Client() {
     }
@@ -50,6 +54,10 @@ public class Client {
         return id;
     }
 
+    public boolean isModified() {
+        return modified;
+    }
+
     @Override
     public String toString() {
         return "Client{" +
@@ -63,11 +71,17 @@ public class Client {
     }
 
     public void setLangCode(String langCode) {
-        this.langCode = langCode;
+        if (!Objects.equals(this.langCode, langCode)) {
+            this.langCode = langCode;
+            modified = true;
+        }
     }
 
     public void setWalletId(String walletId) {
-        this.walletId = walletId;
+        if (!Objects.equals(this.walletId, walletId)) {
+            this.walletId = walletId;
+            modified = true;
+        }
     }
 
     public int getId() {
