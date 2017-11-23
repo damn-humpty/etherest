@@ -89,7 +89,7 @@ public class EtherListener implements UpdatesListener {
                         User user = callbackQuery.from();
                         client = nvl(Db.readClient(user.id()), Client.from(user));
                         Db.delClientExpect(client);
-                        mappingValue.method.invoke(this, client, callbackQuery, query.subList(1, query.size()));
+                        mappingValue.method.invoke(this, client, callbackQuery, query);
                     } else {
                         logger.info(TAG_CLASS, "Unknown callback: " + query);
                     }
@@ -174,6 +174,75 @@ public class EtherListener implements UpdatesListener {
     }
 
     @SuppressWarnings("unused")
+    @Command("buy")
+    private void buy(Client client, Message message) {
+        String msgBody = res.str(client.getLangCode(), "pay_system_message");
+        SendMessage request = new SendMessage(message.from().id(), msgBody)
+                .parseMode(ParseMode.HTML)
+                .disableWebPagePreview(false)
+                .disableNotification(true)
+                .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "pay_systems")));
+        bot.execute(request);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback({"on_buy", "on_pay_back", "on_payment_request_back"})
+    private void buy(Client client, CallbackQuery query, List<String> args) {
+        String msgBody = res.str(client.getLangCode(), "pay_system_message");
+        EditMessageText editMessageText =
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML)
+                        .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "pay_systems")));
+        bot.execute(editMessageText);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback({"on_pay_bitcoin", "on_pay_ethereum", "on_pay_qiwi", "on_pay_sberbank", "on_pay_tinkoff", "on_pay_paypal"})
+    private void payXXX(Client client, CallbackQuery query, List<String> args) {
+        final String lng = client.getLangCode();
+        String msgBody = Bot.replaceMarkers(res.str(lng, args.get(0) + "_message")
+                + res.str(lng, "payment_size_request"), lng);
+        logger.debug(TAG_CLASS, "Msg body from resource (with markers replaced): " + msgBody);
+        EditMessageText editMessageText =
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML);
+        bot.execute(editMessageText);
+        Db.setClientExpect(client, "pay_amount");
+    }
+
+    @SuppressWarnings("unused")
+    @Reply("pay_amount")
+    private void payAmountReply(Client client, Message message) {
+        try {
+            Double amount = Double.valueOf(message.text());
+            if (Ethereum.isValidAmount(amount)) {
+                String msgBody = res.str(client.getLangCode(), "payment_detail_message");
+                logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
+                SendMessage request = new SendMessage(message.from().id(), msgBody)
+                        .parseMode(ParseMode.HTML)
+                        .disableWebPagePreview(false)
+                        .disableNotification(true)
+                        .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "payment_request")));
+                bot.execute(request);
+            }
+        } catch (NumberFormatException e) {
+            logger.error(TAG_CLASS, "Invalid amount: " + message.text());
+        }
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_payment_request_confirm")
+    private void paymentConfirm(Client client, CallbackQuery query, List<String> args) {
+        String msgBody = res.str(client.getLangCode(), "payment_detail_message");
+        logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
+        EditMessageText editMessageText =
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML)
+                        .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "payment")));
+        bot.execute(editMessageText);
+    }
+
+    @SuppressWarnings("unused")
     @Command("settings")
     private void settings(Client client, Message message) {
         String msgBody = String.format(res.str(client.getLangCode(), "settings_message"),
@@ -205,6 +274,7 @@ public class EtherListener implements UpdatesListener {
     private void settingsWallet(Client client, CallbackQuery query, List<String> args) {
         String msgBody = String.format(res.str(client.getLangCode(), "wallet_message"),
                 nvl(client.getWalletId(), res.str(client.getLangCode(), "no_wallet")));
+        logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
         EditMessageText editMessageText =
                 new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
                         .parseMode(ParseMode.HTML)
@@ -236,7 +306,7 @@ public class EtherListener implements UpdatesListener {
     @Callback({"on_lang_lang", "on_settings_lang"})
     private void langLang(Client client, CallbackQuery query, List<String> args) {
         if (args!= null && !args.isEmpty()) {
-            client.setLangCode(args.get(0));
+            client.setLangCode(args.get(1));
         }
         String msgBody = res.str(client.getLangCode(), "lang_message");
         EditMessageText editMessageText =

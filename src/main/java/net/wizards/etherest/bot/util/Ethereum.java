@@ -16,4 +16,8 @@ public class Ethereum {
     public static boolean isValidWalletId(String walletId) {
         return walletId != null && !walletId.isEmpty();
     }
+
+    public static boolean isValidAmount(Double amount) {
+        return amount != null && amount > 0;
+    }
 }

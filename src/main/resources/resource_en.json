@@ -6,7 +6,16 @@
     "wallet_message": "<b>Wallet</b>\n\nCurrent wallet: <code>%s</code>",
     "operator_message": "Please enter password to enable operator mode",
     "operator_mode_enabled": "You are an operator now",
-    "wallet_edit_message": "<b>Setup wallet</b>\n\nPlease visit <a href=\"https://www.myetherwallet.com/\">MyEtherWallet</a> site and follow its instructions to create a new wallet and tell me its ID. Example of correct ID: <code>0xd72029234a9e1b7c64758c9f0e1c1bc412a51414</code>."
+    "wallet_edit_message": "<b>Setup wallet</b>\n\nPlease visit <a href=\"https://www.myetherwallet.com/\">MyEtherWallet</a> site and follow its instructions to create a new wallet and tell me its ID. Example of correct ID: <code>0xd72029234a9e1b7c64758c9f0e1c1bc412a51414</code>.",
+    "pay_system_message": "Please choose payment system",
+    "on_pay_bitcoin_message": "<b>Bitcoin</b>\n\nThis is the required information to make money transfer.\n\nThis is exchange rate: {net.wizards.etherest.bot.EnvVariables.getBtc2Eth();}\n\n",
+    "on_pay_ethereum_message": "<b>Ethereum</b>\n\nThis is the required information to make money transfer.\n\n",
+    "on_pay_qiwi_message": "<b>Qiwi</b>\n\nThis is the required information to make money transfer.\n\n",
+    "on_pay_sberbank_message": "<b>Sberbank</b>\n\nThis is the required information to make money transfer.\n\n",
+    "on_pay_tinkoff_message": "<b>Tinkoff</b>\n\nThis is the required information to make money transfer.\n\n",
+    "on_pay_paypal_message": "<b>PayPal</b>\n\nThis is the required information to make money transfer.\n\n",
+    "payment_size_request": "Please tell me how much you are going to pay.",
+    "payment_detail_message": "<b>Payment details</b>\n\nBla-bla-bla"
   },
   "kb": {
     "lang": [
@@ -31,6 +40,33 @@
       {
         "on_wallet_edit": "📝Edit",
         "on_wallet_back": "<<Back"
+      }
+    ],
+    "pay_systems": [
+      {
+        "on_pay_bitcoin": "Bitcoin",
+        "on_pay_ethereum": "Ethereum",
+        "on_pay_qiwi": "Qiwi"
+      },
+      {
+        "on_pay_sberbank": "Sberbank",
+        "on_pay_tinkoff": "Tinkoff",
+        "on_pay_paypal": "PayPal"
+      },
+      {
+        "on_pay_back": "<<Back"
+      }
+    ],
+    "payment_request": [
+      {
+        "on_payment_request_confirm": "Confirm",
+        "on_payment_request_back": "<<Back"
+      }
+    ],
+    "payment": [
+      {
+        "on_payment_paid": "I paid",
+        "on_payment_cancel": "Cancel"
       }
     ]
   }
