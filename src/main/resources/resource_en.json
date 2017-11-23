@@ -3,7 +3,9 @@
     "lang_message": "<b>Language</b>\n\nCurrent language: 🇬🇧ENG",
     "settings_message": "<b>Settings</b>\n\nLanguage: 🇬🇧ENG\nWallet: %s",
     "no_wallet": "not configured",
-    "wallet_message": "<b>Wallet</b>\n\nCurrent wallet: %s"
+    "wallet_message": "<b>Wallet</b>\n\nCurrent wallet: %s",
+    "operator_message": "Please enter password to enable operator mode",
+    "operator_mode_enabled": "You are an operator now"
   },
   "kb": {
     "lang": [

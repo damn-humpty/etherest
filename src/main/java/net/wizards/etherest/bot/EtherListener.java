@@ -10,6 +10,7 @@ import com.pengrad.telegrambot.request.SendMessage;
 import net.wizards.etherest.Config;
 import net.wizards.etherest.bot.annotation.Callback;
 import net.wizards.etherest.bot.annotation.Command;
+import net.wizards.etherest.bot.annotation.Reply;
 import net.wizards.etherest.bot.dom.Client;
 import net.wizards.etherest.bot.dom.Resources;
 import net.wizards.etherest.bot.util.Bot;
@@ -21,10 +22,7 @@ import org.apache.logging.log4j.MarkerManager;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static net.wizards.etherest.util.Misc.nvl;
 
@@ -32,9 +30,11 @@ public class EtherListener implements UpdatesListener {
     private final TelegramBot bot;
     private Config cfg;
     private Resources res;
+    private Set<Long> operators;
 
     private static Map<MappingKey, MappingValue> cmdWorkers = new HashMap<>();
     private static Map<MappingKey, MappingValue> cbWorkers = new HashMap<>();
+    private static Map<MappingKey, MappingValue> replyWorkers = new HashMap<>();
 
     private static final Logger logger = LogManager.getLogger();
     private static final Marker TAG_CLASS = MarkerManager.getMarker(EtherBot.class.getSimpleName());
@@ -43,8 +43,8 @@ public class EtherListener implements UpdatesListener {
         this.bot = bot;
         cfg = Config.get();
         initWorkerMappings();
-
         res = Resources.get();
+        operators = Db.getOperators();
     }
 
     private void initWorkerMappings() {
@@ -55,6 +55,9 @@ public class EtherListener implements UpdatesListener {
             } else if (method.isAnnotationPresent(Callback.class)) {
                 Callback callback = method.getAnnotation(Callback.class);
                 cbWorkers.put(new MappingKey(callback.value()), new MappingValue(method));
+            } else if (method.isAnnotationPresent(Reply.class)) {
+                Reply reply = method.getAnnotation(Reply.class);
+                replyWorkers.put(new MappingKey(reply.value()), new MappingValue(method));
             }
         }
     }
@@ -78,22 +81,37 @@ public class EtherListener implements UpdatesListener {
                     if (mappingValue != null) {
                         User user = callbackQuery.from();
                         client = nvl(Db.readClient(user.id()), Client.from(user));
+                        Db.delClientExpect(client);
                         mappingValue.method.invoke(this, client, callbackQuery, query.subList(1, query.size()));
                     } else {
                         logger.info(TAG_CLASS, "Unknown callback: " + query);
                     }
-                } else if (message != null && message.entities() != null) {
-                    for (MessageEntity messageEntity : message.entities()) {
-                        if (messageEntity.type() == MessageEntity.Type.bot_command) {
-                            String cmd = message.text().substring(messageEntity.offset() + 1, messageEntity.length());
-                            MappingValue mappingValue = cmdWorkers.get(new MappingKey(cmd));
-                            if (mappingValue != null) {
-                                User user = message.from();
-                                client = nvl(Db.readClient(user.id()), Client.from(user));
-                                mappingValue.method.invoke(this, client, message);
-                            } else {
-                                logger.info(TAG_CLASS, "Unknown command: " + cmd);
+                } else if (message != null) {
+                    User user = message.from();
+                    client = nvl(Db.readClient(user.id()), Client.from(user));
+                    if (message.entities() != null) { // Command
+                        Db.delClientExpect(client);
+                        for (MessageEntity messageEntity : message.entities()) {
+                            if (messageEntity.type() == MessageEntity.Type.bot_command) {
+                                String cmd = message.text().substring(messageEntity.offset() + 1, messageEntity.length());
+                                MappingValue mappingValue = cmdWorkers.get(new MappingKey(cmd));
+                                if (mappingValue != null) {
+                                    mappingValue.method.invoke(this, client, message);
+                                } else {
+                                    logger.info(TAG_CLASS, "Unknown command: " + cmd);
+                                }
                             }
+                        }
+                    } else { // Reply
+                        String expect = Db.getClientExpect(client);
+                        Db.delClientExpect(client);
+                        if (expect != null) {
+                            MappingValue mappingValue = replyWorkers.get(new MappingKey(expect));
+                            if (mappingValue != null) {
+                                mappingValue.method.invoke(this, client, message);
+                            }
+                        } else {
+                            logger.info(TAG_CLASS, "Unexpected reply: " + message.text());
                         }
                     }
                 }
@@ -108,6 +126,32 @@ public class EtherListener implements UpdatesListener {
         }
 
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
+    }
+
+    @SuppressWarnings("unused")
+    @Command("operator")
+    private void operator(Client client, Message message) {
+        String msgBody = res.str(client.getLangCode(), "operator_message");
+        SendMessage request = new SendMessage(message.from().id(), msgBody)
+                .parseMode(ParseMode.HTML)
+                .disableWebPagePreview(false)
+                .disableNotification(true);
+        bot.execute(request);
+        Db.setClientExpect(client, "operator_password");
+    }
+
+    @SuppressWarnings("unused")
+    @Reply("operator_password")
+    private void operatorReply(Client client, Message message) {
+        if (Objects.equals(cfg.getOperatorPassword(), message.text())) {
+            Db.addOperator(message.chat().id());
+            String msgBody = res.str(client.getLangCode(), "operator_mode_enabled");
+            SendMessage request = new SendMessage(message.from().id(), msgBody)
+                    .parseMode(ParseMode.HTML)
+                    .disableWebPagePreview(false)
+                    .disableNotification(true);
+            bot.execute(request);
+        }
     }
 
     @SuppressWarnings("unused")

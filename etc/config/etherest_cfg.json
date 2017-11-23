@@ -6,7 +6,7 @@
   "supportedLang": "en,ru",
   "defaultLang": "en",
 
-  "operatorChats": "0,-1",
+  "operatorPassword": "SPECIFY",
 
   "portRestListener": 13085,
   "restListenerPoolSize": 10,

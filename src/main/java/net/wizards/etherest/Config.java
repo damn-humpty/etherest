@@ -23,7 +23,7 @@ public class Config {
     private String supportedLang;
     private String defaultLang;
 
-    private String operatorChats;
+    private String operatorPassword;
 
     private String buildNumber;
 
@@ -48,6 +48,10 @@ public class Config {
     private static final Logger logger = LogManager.getLogger();
     private static final Marker TAG_CLASS = MarkerManager.getMarker(Config.class.getSimpleName());
 
+    public String getOperatorPassword() {
+        return operatorPassword;
+    }
+
     public Integer getClientDataExpiry() {
         return clientDataExpiry;
     }
@@ -70,10 +74,6 @@ public class Config {
 
     Integer getRestListenerPoolSize() {
         return restListenerPoolSize;
-    }
-
-    public String getOperatorChats() {
-        return operatorChats;
     }
 
     String getTrustedIp() {
@@ -158,7 +158,7 @@ public class Config {
         supportedLang = nvl(config.getSupportedLang(), supportedLang);
         defaultLang = nvl(config.getDefaultLang(), defaultLang);
 
-        operatorChats = nvl(config.getOperatorChats(), operatorChats);
+        operatorPassword = nvl(config.getOperatorPassword(), operatorPassword);
 
         logRedisDataFlow = nvl(config.isLogRedisDataFlow(), logRedisDataFlow);
         logHttpRequests = nvl(config.isLogHttpRequests(), logHttpRequests);
