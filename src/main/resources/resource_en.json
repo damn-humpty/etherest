@@ -3,9 +3,10 @@
     "lang_message": "<b>Language</b>\n\nCurrent language: 🇬🇧ENG",
     "settings_message": "<b>Settings</b>\n\nLanguage: 🇬🇧ENG\nWallet: %s",
     "no_wallet": "not configured",
-    "wallet_message": "<b>Wallet</b>\n\nCurrent wallet: %s",
+    "wallet_message": "<b>Wallet</b>\n\nCurrent wallet: <code>%s</code>",
     "operator_message": "Please enter password to enable operator mode",
-    "operator_mode_enabled": "You are an operator now"
+    "operator_mode_enabled": "You are an operator now",
+    "wallet_edit_message": "<b>Setup wallet</b>\n\nPlease visit <a href=\"https://www.myetherwallet.com/\">MyEtherWallet</a> site and follow its instructions to create a new wallet and tell me its ID. Example of correct ID: <code>0xd72029234a9e1b7c64758c9f0e1c1bc412a51414</code>."
   },
   "kb": {
     "lang": [
@@ -23,12 +24,12 @@
         "on_settings_wallet": "👛Wallet"
       },
       {
-        "on_lang_back": "<<Back"
+        "on_settings_back": "<<Back"
       }
     ],
     "wallet": [
       {
-        "on_wallet_change": "📝Change",
+        "on_wallet_edit": "📝Edit",
         "on_wallet_back": "<<Back"
       }
     ]

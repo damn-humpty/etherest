@@ -15,6 +15,7 @@ import net.wizards.etherest.bot.dom.Client;
 import net.wizards.etherest.bot.dom.Resources;
 import net.wizards.etherest.bot.util.Bot;
 import net.wizards.etherest.bot.util.Db;
+import net.wizards.etherest.bot.util.Ethereum;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
@@ -202,9 +203,6 @@ public class EtherListener implements UpdatesListener {
     @SuppressWarnings("unused")
     @Callback("on_settings_wallet")
     private void settingsWallet(Client client, CallbackQuery query, List<String> args) {
-        if (args!= null && !args.isEmpty()) {
-            client.setLangCode(args.get(0));
-        }
         String msgBody = String.format(res.str(client.getLangCode(), "wallet_message"),
                 nvl(client.getWalletId(), res.str(client.getLangCode(), "no_wallet")));
         EditMessageText editMessageText =
@@ -212,6 +210,26 @@ public class EtherListener implements UpdatesListener {
                         .parseMode(ParseMode.HTML)
                         .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "wallet")));
         bot.execute(editMessageText);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_wallet_edit")
+    private void walletChange(Client client, CallbackQuery query, List<String> args) {
+        String msgBody = res.str(client.getLangCode(), "wallet_edit_message");
+        EditMessageText editMessageText =
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML);
+        bot.execute(editMessageText);
+        Db.setClientExpect(client, "new_wallet_id");
+    }
+
+    @SuppressWarnings("unused")
+    @Reply("new_wallet_id")
+    private void newWalletIdReply(Client client, Message message) {
+        if (Ethereum.isValidWalletId(message.text())) {
+            client.setWalletId(message.text());
+            settings(client, message);
+        }
     }
 
     @SuppressWarnings("unused")
