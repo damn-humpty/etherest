@@ -3,7 +3,9 @@ package net.wizards.etherest.bot.util;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.wizards.etherest.Config;
+import net.wizards.etherest.bot.EtherListener;
 import net.wizards.etherest.bot.dom.Client;
+import net.wizards.etherest.bot.dom.PaymentClaim;
 import net.wizards.etherest.database.Redis;
 import net.wizards.etherest.util.Misc;
 import org.apache.logging.log4j.LogManager;
@@ -14,6 +16,7 @@ import org.apache.logging.log4j.MarkerManager;
 import java.lang.reflect.Type;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class Db {
     private static Redis redis = Redis.getInstance();
@@ -25,11 +28,13 @@ public class Db {
 
     private static final String CLIENT_KEY_PREFIX = "client:";
     private static final String EXPECT_KEY_SUFFIX = ":expect";
+    private static final String CLAIM_KEY_SUFFIX = ":claim";
     private static final String OPERATOR_LIST_KEY = "operators";
 
     private static final Type setType = new TypeToken<Set<Long>>(){}.getType();
 
     private static final int EXPECT_EXPIRY = 86400;
+    private static final int CLAIM_EXPIRY = 86400;
 
     private Db() {
         throw new RuntimeException();
@@ -56,9 +61,9 @@ public class Db {
         }
     }
 
-    public static void setClientExpect(Client client, String expect) {
+    public static void setClientExpect(Client client, EtherListener.Expect expect) {
         final String key = CLIENT_KEY_PREFIX + client.getId() + EXPECT_KEY_SUFFIX;
-        redis.set(key, expect, EXPECT_EXPIRY);
+        redis.set(key, new Gson().toJson(expect), EXPECT_EXPIRY);
         if (cfg.isLogRedisDataFlow()) {
             logger.debug(TAG_REDIS, "Expect (" + expect + ") written to Redis for " + client);
         }
@@ -72,9 +77,9 @@ public class Db {
         }
     }
 
-    public static String getClientExpect(Client client) {
+    public static EtherListener.Expect getClientExpect(Client client) {
         final String key = CLIENT_KEY_PREFIX + client.getId() + EXPECT_KEY_SUFFIX;
-        String expect = redis.get(key);
+        EtherListener.Expect expect = new Gson().fromJson(redis.get(key), EtherListener.Expect.class);
         if (cfg.isLogRedisDataFlow()) {
             logger.debug(TAG_REDIS, "Expect (" + expect + ") read from Redis for " + client);
         }
@@ -99,6 +104,29 @@ public class Db {
         redis.set(OPERATOR_LIST_KEY, new Gson().toJson(operators), cfg.getClientDataExpiry());
         if (cfg.isLogRedisDataFlow()) {
             logger.debug(TAG_REDIS, "Operator list written to Redis: " + operators);
+        }
+    }
+
+    public static PaymentClaim getClaim(Client client) {
+        try {
+            final String key = CLIENT_KEY_PREFIX + client.getId() + CLAIM_KEY_SUFFIX;
+            PaymentClaim claim = Misc.nvl(new Gson().fromJson(redis.get(key), PaymentClaim.class), new PaymentClaim());
+            if (cfg.isLogRedisDataFlow()) {
+                logger.debug(TAG_REDIS, "Payment claim read from Redis: " + claim);
+            }
+            return claim;
+        } catch (Exception e) {
+            return new PaymentClaim();
+        }
+    }
+
+    public static void updateClaim(Client client, Consumer<PaymentClaim> setter) {
+        PaymentClaim claim = getClaim(client);
+        setter.accept(claim);
+        final String key = CLIENT_KEY_PREFIX + client.getId() + CLAIM_KEY_SUFFIX;
+        redis.set(key, new Gson().toJson(claim), CLAIM_EXPIRY);
+        if (cfg.isLogRedisDataFlow()) {
+            logger.debug(TAG_REDIS, "Payment claim updated: " + claim);
         }
     }
 }

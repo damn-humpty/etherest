@@ -62,7 +62,7 @@ public class EtherListener implements UpdatesListener {
                 }
             } else if (method.isAnnotationPresent(Reply.class)) {
                 Reply reply = method.getAnnotation(Reply.class);
-                for (String value : reply.value()) {
+                for (Expect value : reply.value()) {
                     replyWorkers.put(new MappingKey(value), new MappingValue(method));
                 }
             }
@@ -110,7 +110,7 @@ public class EtherListener implements UpdatesListener {
                             }
                         }
                     } else { // Reply
-                        String expect = Db.getClientExpect(client);
+                        Expect expect = Db.getClientExpect(client);
                         Db.delClientExpect(client);
                         if (expect != null) {
                             MappingValue mappingValue = replyWorkers.get(new MappingKey(expect));
@@ -144,11 +144,11 @@ public class EtherListener implements UpdatesListener {
                 .disableWebPagePreview(false)
                 .disableNotification(true);
         bot.execute(request);
-        Db.setClientExpect(client, "operator_password");
+        Db.setClientExpect(client, Expect.OPERATOR_PASSWORD);
     }
 
     @SuppressWarnings("unused")
-    @Reply("operator_password")
+    @Reply(Expect.OPERATOR_PASSWORD)
     private void operatorReply(Client client, Message message) {
         if (Objects.equals(cfg.getOperatorPassword(), message.text())) {
             Db.addOperator(message.chat().id());
@@ -176,29 +176,35 @@ public class EtherListener implements UpdatesListener {
     @SuppressWarnings("unused")
     @Command("buy")
     private void buy(Client client, Message message) {
-        String msgBody = res.str(client.getLangCode(), "pay_system_message");
-        SendMessage request = new SendMessage(message.from().id(), msgBody)
-                .parseMode(ParseMode.HTML)
-                .disableWebPagePreview(false)
-                .disableNotification(true)
-                .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "pay_systems")));
-        bot.execute(request);
+        if (Ethereum.isValidWalletId(client.getWalletId())) {
+            Db.updateClaim(client, c -> c.setWalletId(client.getWalletId()));
+            String msgBody = res.str(client.getLangCode(), "pay_system_message");
+            SendMessage request = new SendMessage(message.from().id(), msgBody)
+                    .parseMode(ParseMode.HTML)
+                    .disableWebPagePreview(false)
+                    .disableNotification(true)
+                    .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "pay_systems")));
+            bot.execute(request);
+        }
     }
 
     @SuppressWarnings("unused")
     @Callback({"on_buy", "on_pay_back", "on_payment_request_back"})
     private void buy(Client client, CallbackQuery query, List<String> args) {
-        String msgBody = res.str(client.getLangCode(), "pay_system_message");
-        EditMessageText editMessageText =
-                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
-                        .parseMode(ParseMode.HTML)
-                        .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "pay_systems")));
-        bot.execute(editMessageText);
+        if (Ethereum.isValidWalletId(client.getWalletId())) {
+            String msgBody = res.str(client.getLangCode(), "pay_system_message");
+            EditMessageText editMessageText =
+                    new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                            .parseMode(ParseMode.HTML)
+                            .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "pay_systems")));
+            bot.execute(editMessageText);
+        }
     }
 
     @SuppressWarnings("unused")
     @Callback({"on_pay_bitcoin", "on_pay_ethereum", "on_pay_qiwi", "on_pay_sberbank", "on_pay_tinkoff", "on_pay_paypal"})
     private void payXXX(Client client, CallbackQuery query, List<String> args) {
+        Db.updateClaim(client, c -> c.setPaySystem(args.get(0).substring(7)));
         final String lng = client.getLangCode();
         String msgBody = Bot.replaceMarkers(res.str(lng, args.get(0) + "_message")
                 + res.str(lng, "payment_size_request"), lng);
@@ -207,15 +213,16 @@ public class EtherListener implements UpdatesListener {
                 new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
                         .parseMode(ParseMode.HTML);
         bot.execute(editMessageText);
-        Db.setClientExpect(client, "pay_amount");
+        Db.setClientExpect(client, Expect.PAY_AMOUNT);
     }
 
     @SuppressWarnings("unused")
-    @Reply("pay_amount")
+    @Reply(Expect.PAY_AMOUNT)
     private void payAmountReply(Client client, Message message) {
         try {
             Double amount = Double.valueOf(message.text());
             if (Ethereum.isValidAmount(amount)) {
+                Db.updateClaim(client, c -> c.setAmount(amount));
                 String msgBody = res.str(client.getLangCode(), "payment_detail_message");
                 logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
                 SendMessage request = new SendMessage(message.from().id(), msgBody)
@@ -290,11 +297,11 @@ public class EtherListener implements UpdatesListener {
                 new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
                         .parseMode(ParseMode.HTML);
         bot.execute(editMessageText);
-        Db.setClientExpect(client, "new_wallet_id");
+        Db.setClientExpect(client, Expect.NEW_WALLET_ID);
     }
 
     @SuppressWarnings("unused")
-    @Reply("new_wallet_id")
+    @Reply(Expect.NEW_WALLET_ID)
     private void newWalletIdReply(Client client, Message message) {
         if (Ethereum.isValidWalletId(message.text())) {
             client.setWalletId(message.text());
@@ -330,8 +337,8 @@ public class EtherListener implements UpdatesListener {
     private static class MappingKey {
         private String value;
 
-        private MappingKey(String value) {
-            this.value = value;
+        private MappingKey(Object value) {
+            this.value = value.toString();
         }
 
         @Override
@@ -363,4 +370,9 @@ public class EtherListener implements UpdatesListener {
         }
     }
 
+    public enum Expect {
+        NEW_WALLET_ID,
+        PAY_AMOUNT,
+        OPERATOR_PASSWORD
+    }
 }
