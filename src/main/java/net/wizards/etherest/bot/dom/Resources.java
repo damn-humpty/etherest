@@ -1,6 +1,7 @@
 package net.wizards.etherest.bot.dom;
 
 import com.google.gson.Gson;
+import net.wizards.etherest.Config;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
@@ -23,7 +24,9 @@ public class Resources {
     private static final Logger logger = LogManager.getLogger();
     private static final Marker TAG_CLASS = MarkerManager.getMarker(Resources.class.getSimpleName());
 
-    public Resources(String defaultLang) {
+    private static Resources instance;
+
+    private Resources(String defaultLang) {
         final File jarFile = new File(getClass().getProtectionDomain().getCodeSource().getLocation().getPath());
         final Pattern resourceFileFilter = Pattern.compile("^resource_([a-z]{2})\\.json$");
 
@@ -50,6 +53,13 @@ public class Resources {
                 throw new IllegalStateException("Can't initialize resource data");
             }
         }
+    }
+
+    public static synchronized Resources get() {
+        if (instance == null) {
+            instance = new Resources(Config.get().getDefaultLang());
+        }
+        return instance;
     }
 
     public String str(String lng, String key) {
