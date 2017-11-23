@@ -51,13 +51,19 @@ public class EtherListener implements UpdatesListener {
         for (final java.lang.reflect.Method method : getClass().getDeclaredMethods()) {
             if (method.isAnnotationPresent(Command.class)) {
                 Command cmd = method.getAnnotation(Command.class);
-                cmdWorkers.put(new MappingKey(cmd.value()), new MappingValue(method));
+                for (String value : cmd.value()) {
+                    cmdWorkers.put(new MappingKey(value), new MappingValue(method));
+                }
             } else if (method.isAnnotationPresent(Callback.class)) {
                 Callback callback = method.getAnnotation(Callback.class);
-                cbWorkers.put(new MappingKey(callback.value()), new MappingValue(method));
+                for (String value : callback.value()) {
+                    cbWorkers.put(new MappingKey(value), new MappingValue(method));
+                }
             } else if (method.isAnnotationPresent(Reply.class)) {
                 Reply reply = method.getAnnotation(Reply.class);
-                replyWorkers.put(new MappingKey(reply.value()), new MappingValue(method));
+                for (String value : reply.value()) {
+                    replyWorkers.put(new MappingKey(value), new MappingValue(method));
+                }
             }
         }
     }
@@ -98,7 +104,7 @@ public class EtherListener implements UpdatesListener {
                                 if (mappingValue != null) {
                                     mappingValue.method.invoke(this, client, message);
                                 } else {
-                                    logger.info(TAG_CLASS, "Unknown command: " + cmd);
+                                    logger.info(TAG_CLASS, "Unknown value: " + cmd);
                                 }
                             }
                         }
@@ -181,7 +187,7 @@ public class EtherListener implements UpdatesListener {
     }
 
     @SuppressWarnings("unused")
-    @Callback("on_settings")
+    @Callback({"on_settings", "on_wallet_back", "on_lang_back"})
     private void settings(Client client, CallbackQuery query, List<String> args) {
         String msgBody = String.format(res.str(client.getLangCode(), "settings_message"),
                 nvl(client.getWalletId(), res.str(client.getLangCode(), "no_wallet")));
@@ -191,12 +197,6 @@ public class EtherListener implements UpdatesListener {
                         .parseMode(ParseMode.HTML)
                         .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "settings")));
         bot.execute(editMessageText);
-    }
-
-    @SuppressWarnings("unused")
-    @Callback("on_settings_lang")
-    private void settingsLang(Client client, CallbackQuery query, List<String> args) {
-        langLang(client, query, args);
     }
 
     @SuppressWarnings("unused")
@@ -215,19 +215,7 @@ public class EtherListener implements UpdatesListener {
     }
 
     @SuppressWarnings("unused")
-    @Callback("on_wallet_back")
-    private void walletBack(Client client, CallbackQuery query, List<String> args) {
-        settings(client, query, args);
-    }
-
-    @SuppressWarnings("unused")
-    @Callback("on_lang_back")
-    private void langBack(Client client, CallbackQuery query, List<String> args) {
-        settings(client, query, args);
-    }
-
-    @SuppressWarnings("unused")
-    @Callback("on_lang_lang")
+    @Callback({"on_lang_lang", "on_settings_lang"})
     private void langLang(Client client, CallbackQuery query, List<String> args) {
         if (args!= null && !args.isEmpty()) {
             client.setLangCode(args.get(0));
@@ -252,10 +240,10 @@ public class EtherListener implements UpdatesListener {
     }
 
     private static class MappingKey {
-        private String command;
+        private String value;
 
-        private MappingKey(String command) {
-            this.command = command;
+        private MappingKey(String value) {
+            this.value = value;
         }
 
         @Override
@@ -265,17 +253,17 @@ public class EtherListener implements UpdatesListener {
 
             MappingKey that = (MappingKey) o;
 
-            return command.equals(that.command);
+            return value.equals(that.value);
         }
 
         @Override
         public int hashCode() {
-            return command.hashCode();
+            return value.hashCode();
         }
 
         @Override
         public String toString() {
-            return "MappingKey{" +"command='" + command + '}';
+            return "MappingKey{" +"value='" + value + '}';
         }
     }
 

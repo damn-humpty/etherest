@@ -82,7 +82,7 @@ public class Redis {
         try (Jedis jedis = getPool().getResource()) {
             String result = jedis.get(ns(key));
             if (config.isLogRedisDataFlow()) {
-                logger.debug(TAG_REDIS, String.format("Get key %s data", key));
+                logger.debug(TAG_REDIS, String.format("Get key %s data", ns(key)));
             }
             return result;
         }
@@ -95,7 +95,7 @@ public class Redis {
                 jedis.expire(ns(key), expireSeconds);
             }
             if (config.isLogRedisDataFlow()) {
-                logger.debug(TAG_REDIS, String.format("Key %s stored for %d seconds", key, expireSeconds));
+                logger.debug(TAG_REDIS, String.format("Key %s stored for %d seconds", ns(key), expireSeconds));
             }
         }
     }
@@ -104,7 +104,7 @@ public class Redis {
         try (Jedis jedis = getPool().getResource()) {
             jedis.del(ns(key));
             if (config.isLogRedisDataFlow()) {
-                logger.debug(TAG_REDIS, String.format("Key %s deleted", key));
+                logger.debug(TAG_REDIS, String.format("Key %s deleted", ns(key)));
             }
         }
     }
@@ -113,7 +113,7 @@ public class Redis {
         try (Jedis jedis = getPool().getResource()) {
             boolean result = jedis.exists(ns(key));
             if (config.isLogRedisDataFlow()) {
-                logger.debug(TAG_REDIS, String.format("Key %s %s", key, result ? "exists" : "not exists"));
+                logger.debug(TAG_REDIS, String.format("Key %s %s", ns(key), result ? "exists" : "not exists"));
             }
             return result;
         }
@@ -146,7 +146,6 @@ public class Redis {
             password = passwordTmp;
             pool = getPool();
             logger.info(TAG_CLASS, "Redis connection created");
-
         }
     }
 }
