@@ -15,7 +15,11 @@
     "pay_tinkoff_message": "<b>Тинькофф</b>\n\nЭто информация, необходимая, чтобы сделать перевод.\n\n",
     "pay_paypal_message": "<b>PayPal</b>\n\nЭто информация, необходимая, чтобы сделать перевод.\n\n",
     "payment_size_request": "Пожалуйста, сообщите мне сумму желаемого перевода.",
-    "payment_detail_message": "<b>Payment details</b>\n\n"
+    "payment_preview_message": "<b>Детали перевода</b>\n\nPayment system: %s\nPayment amount: %f\nWallet: %s\n\nIn hac habitasse platea dictumst. In sed finibus augue. Ut nunc turpis, pellentesque eget mollis eget, luctus ac dolor. Aenean fermentum congue tortor, nec facilisis nunc porttitor feugiat. Morbi commodo justo ut ligula porttitor, sit amet viverra tortor dapibus. Praesent a libero sit amet neque dictum congue id id massa.\n\nПожалуйста, проверьте детали и нажмите \"Подтвердить\", если всё в порядке, или \"Назад\", чтобы внести изменения.",
+    "payment_confirm_message": "<b>Детали перевода</b>\n\nПлатежная система: %s\nСумма перевода: %f\nБумажник: %s\n\nIn hac habitasse platea dictumst. In sed finibus augue. Ut nunc turpis, pellentesque eget mollis eget, luctus ac dolor. Aenean fermentum congue tortor, nec facilisis nunc porttitor feugiat. Morbi commodo justo ut ligula porttitor, sit amet viverra tortor dapibus. Praesent a libero sit amet neque dictum congue id id massa.\n\nПожалуйста, сделайте этот перевод и нажмите кнопку \"Я оплатил\". Если вы хотите изменить детали, нажмите \"Отмена\", чтобы начать сначала.",
+    "payment_confirm_thanks": "<b>Спасибо!</b>\n\nВаш заказ находится в обработке. Вы будете вскоре уведомлены о результате.",
+    "init_message": "<b>Добро пожаловать!</b>\n\nAt vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio.",
+    "payment_detail_4oper_message": "<b>Заявленный платеж</b>\n\nПлатежная система: %s\nСумма перевода: %f\nБумажник: %s"
   },
   "kb": {
     "lang": [
@@ -29,8 +33,8 @@
     ],
     "settings": [
       {
-        "on_settings_lang": "🌍Язык",
-        "on_settings_wallet": "👛Бумажник"
+        "on_settings_lang": "Язык",
+        "on_settings_wallet": "Бумажник"
       },
       {
         "on_settings_back": "<<Назад"
@@ -38,7 +42,7 @@
     ],
     "wallet": [
       {
-        "on_wallet_edit": "📝Настроить",
+        "on_wallet_edit": "Настроить",
         "on_wallet_back": "<<Назад"
       }
     ],
@@ -54,9 +58,9 @@
         "on_pay_paypal": "PayPal"
       }
     ],
-    "payment_request": [
+    "payment_preview": [
       {
-        "on_payment_request_confirm": "Разместить заявку",
+        "on_payment_request_confirm": "Подтвердить",
         "on_payment_request_back": "<<Назад"
       }
     ],
@@ -64,6 +68,22 @@
       {
         "on_payment_paid": "Я оплатил",
         "on_payment_cancel": "Отмена"
+      }
+    ],
+    "ok": [
+      {
+        "on_ok": "OK"
+      }
+    ],
+    "init0": [
+      {
+        "on_init_settings": "Настройки"
+      }
+    ],
+    "init": [
+      {
+        "on_init_settings": "Настройки",
+        "on_init_buy": "Купить токены"
       }
     ]
   }

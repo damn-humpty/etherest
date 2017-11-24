@@ -1,6 +1,5 @@
 package net.wizards.etherest.bot.dom;
 
-import com.google.gson.Gson;
 import com.pengrad.telegrambot.model.User;
 import net.wizards.etherest.Config;
 import net.wizards.etherest.util.Misc;
@@ -16,6 +15,7 @@ public class Client {
     private String walletId;
 
     transient private boolean modified;
+    transient private Long chatId;
 
     public Client() {
     }
@@ -37,6 +37,14 @@ public class Client {
         this.userName = userName;
         this.langCode = langCode;
         this.walletId = walletId;
+    }
+
+    public Long getChatId() {
+        return chatId;
+    }
+
+    public void setChatId(Long chatId) {
+        this.chatId = chatId;
     }
 
     @Override

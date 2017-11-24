@@ -12,6 +12,7 @@ import net.wizards.etherest.bot.annotation.Callback;
 import net.wizards.etherest.bot.annotation.Command;
 import net.wizards.etherest.bot.annotation.Reply;
 import net.wizards.etherest.bot.dom.Client;
+import net.wizards.etherest.bot.dom.PaymentClaim;
 import net.wizards.etherest.bot.dom.Resources;
 import net.wizards.etherest.bot.util.Bot;
 import net.wizards.etherest.bot.util.Db;
@@ -105,6 +106,7 @@ public class EtherListener implements UpdatesListener {
                 if (mappingValue != null) {
                     User user = callbackQuery.from();
                     client = nvl(Db.readClient(user.id()), Client.from(user));
+                    client.setChatId(callbackQuery.message().chat().id());
                     Db.delClientExpect(client);
                     mappingValue.method.invoke(this, client, callbackQuery, query);
                 } else {
@@ -113,6 +115,7 @@ public class EtherListener implements UpdatesListener {
             } else if (message != null) {
                 User user = message.from();
                 client = nvl(Db.readClient(user.id()), Client.from(user));
+                client.setChatId(message.chat().id());
                 if (message.entities() != null) { // Command
                     Db.delClientExpect(client);
                     for (MessageEntity messageEntity : message.entities()) {
@@ -149,6 +152,22 @@ public class EtherListener implements UpdatesListener {
         }
     }
 
+    private void sendPayClaim(PaymentClaim paymentClaim) {
+        String msgBody = String.format(
+                res.str(cfg.getDefaultLang(), "payment_detail_4oper_message"),
+                paymentClaim.getPaySystem(),
+                paymentClaim.getAmount(),
+                paymentClaim.getWalletId()
+        );
+        for (Long chatId : operators) {
+            SendMessage request = new SendMessage(chatId, msgBody)
+                    .parseMode(ParseMode.HTML)
+                    .disableWebPagePreview(false)
+                    .disableNotification(false);
+            bot.execute(request);
+        }
+    }
+
     @SuppressWarnings("unused")
     @Command("operator")
     private void operator(Client client, Message message) {
@@ -172,6 +191,33 @@ public class EtherListener implements UpdatesListener {
                     .disableWebPagePreview(false)
                     .disableNotification(true);
             bot.execute(request);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    @Command({"init", "start"})
+    private void init(Client client, Message message) {
+        String msgBody = res.str(client.getLangCode(), "init_message");
+        String kbResource = Ethereum.isValidWalletId(client.getWalletId()) ? "init" : "init0";
+        SendMessage request = new SendMessage(message.from().id(), msgBody)
+                .parseMode(ParseMode.HTML)
+                .disableWebPagePreview(false)
+                .disableNotification(true)
+                .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), kbResource)));
+        bot.execute(request);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback({"on_init", "on_settings_back", "on_pay_back", "on_ok"})
+    private void init(Client client, CallbackQuery query, List<String> args) {
+        if (Ethereum.isValidWalletId(client.getWalletId())) {
+            String msgBody = res.str(client.getLangCode(), "init_message");
+            String kbResource = Ethereum.isValidWalletId(client.getWalletId()) ? "init" : "init0";
+            EditMessageText editMessageText =
+                    new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                            .parseMode(ParseMode.HTML)
+                            .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), kbResource)));
+            bot.execute(editMessageText);
         }
     }
 
@@ -203,7 +249,7 @@ public class EtherListener implements UpdatesListener {
     }
 
     @SuppressWarnings("unused")
-    @Callback({"on_buy", "on_pay_back", "on_payment_request_back"})
+    @Callback({"on_init_buy", "on_payment_request_back", "on_payment_cancel"})
     private void buy(Client client, CallbackQuery query, List<String> args) {
         if (Ethereum.isValidWalletId(client.getWalletId())) {
             String msgBody = res.str(client.getLangCode(), "pay_system_message");
@@ -237,13 +283,19 @@ public class EtherListener implements UpdatesListener {
             Double amount = Double.valueOf(message.text());
             if (Ethereum.isValidAmount(amount)) {
                 Db.updateClaim(client, c -> c.setAmount(amount));
-                String msgBody = res.str(client.getLangCode(), "payment_detail_message");
+                PaymentClaim paymentClaim = Db.getClaim(client);
+                String msgBody = String.format(
+                        res.str(client.getLangCode(), "payment_preview_message"),
+                        paymentClaim.getPaySystem(),
+                        paymentClaim.getAmount(),
+                        paymentClaim.getWalletId()
+                );
                 logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
                 SendMessage request = new SendMessage(message.from().id(), msgBody)
                         .parseMode(ParseMode.HTML)
                         .disableWebPagePreview(false)
                         .disableNotification(true)
-                        .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "payment_request")));
+                        .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "payment_preview")));
                 bot.execute(request);
             }
         } catch (NumberFormatException e) {
@@ -254,13 +306,33 @@ public class EtherListener implements UpdatesListener {
     @SuppressWarnings("unused")
     @Callback("on_payment_request_confirm")
     private void paymentConfirm(Client client, CallbackQuery query, List<String> args) {
-        String msgBody = res.str(client.getLangCode(), "payment_detail_message");
+        PaymentClaim paymentClaim = Db.getClaim(client);
+        String msgBody = String.format(
+                res.str(client.getLangCode(), "payment_confirm_message"),
+                paymentClaim.getPaySystem(),
+                paymentClaim.getAmount(),
+                paymentClaim.getWalletId()
+        );
         logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
         EditMessageText editMessageText =
                 new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
                         .parseMode(ParseMode.HTML)
                         .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "payment")));
         bot.execute(editMessageText);
+    }
+
+    @SuppressWarnings("unused")
+    @Callback("on_payment_paid")
+    private void paymentPaid(Client client, CallbackQuery query, List<String> args) {
+        Db.updateClaim(client, c -> c.setChatId(client.getChatId()));
+        String msgBody = res.str(client.getLangCode(), "payment_confirm_thanks");
+        logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
+        EditMessageText editMessageText =
+                new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
+                        .parseMode(ParseMode.HTML)
+                        .replyMarkup(Bot.getInlineKeyboardMarkup(res.kb(client.getLangCode(), "ok")));
+        bot.execute(editMessageText);
+        sendPayClaim(Db.getClaim(client));
     }
 
     @SuppressWarnings("unused")
@@ -278,7 +350,7 @@ public class EtherListener implements UpdatesListener {
     }
 
     @SuppressWarnings("unused")
-    @Callback({"on_settings", "on_wallet_back", "on_lang_back"})
+    @Callback({"on_init_settings", "on_wallet_back", "on_lang_back"})
     private void settings(Client client, CallbackQuery query, List<String> args) {
         String msgBody = String.format(res.str(client.getLangCode(), "settings_message"),
                 nvl(client.getWalletId(), res.str(client.getLangCode(), "no_wallet")));
