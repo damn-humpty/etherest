@@ -41,12 +41,18 @@ public class Config {
     private Integer clientDataExpiry;
     private String redisPassword;
 
+    private Boolean parallelMode;
+
     private String trustedIp;
 
     transient private static Config instance;
 
     private static final Logger logger = LogManager.getLogger();
     private static final Marker TAG_CLASS = MarkerManager.getMarker(Config.class.getSimpleName());
+
+    public Boolean isParallelMode() {
+        return parallelMode;
+    }
 
     public String getOperatorPassword() {
         return operatorPassword;
@@ -175,6 +181,8 @@ public class Config {
         redisPassword = nvl(config.getRedisPassword(), redisPassword);
 
         trustedIp = nvl(config.getTrustedIp(), trustedIp);
+
+        parallelMode = nvl(config.isParallelMode(), parallelMode);
 
         buildNumber = nvl(config.getBuildNumber(), buildNumber);
     }

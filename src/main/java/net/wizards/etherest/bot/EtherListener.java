@@ -16,6 +16,7 @@ import net.wizards.etherest.bot.dom.Resources;
 import net.wizards.etherest.bot.util.Bot;
 import net.wizards.etherest.bot.util.Db;
 import net.wizards.etherest.bot.util.Ethereum;
+import net.wizards.etherest.util.Misc;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
@@ -24,6 +25,9 @@ import org.apache.logging.log4j.MarkerManager;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 import static net.wizards.etherest.util.Misc.nvl;
 
@@ -32,6 +36,7 @@ public class EtherListener implements UpdatesListener {
     private Config cfg;
     private Resources res;
     private Set<Long> operators;
+    private UpdateDispatcher updateDispatcher;
 
     private static Map<MappingKey, MappingValue> cmdWorkers = new HashMap<>();
     private static Map<MappingKey, MappingValue> cbWorkers = new HashMap<>();
@@ -46,6 +51,9 @@ public class EtherListener implements UpdatesListener {
         initWorkerMappings();
         res = Resources.get();
         operators = Db.getOperators();
+        if (cfg.isParallelMode()) {
+            updateDispatcher = new UpdateDispatcher();
+        }
     }
 
     private void initWorkerMappings() {
@@ -76,63 +84,69 @@ public class EtherListener implements UpdatesListener {
             if (cfg.isLogBotRequests()) {
                 logger.info(TAG_CLASS, "Processing request: " + gson.toJson(update));
             }
-
-            Message message = update.message();
-            CallbackQuery callbackQuery = update.callbackQuery();
-
-            try {
-                Client client = null;
-                if (callbackQuery != null) {
-                    List<String> query = Arrays.asList(callbackQuery.data().split(" "));
-                    MappingValue mappingValue = cbWorkers.get(new MappingKey(query.get(0)));
-                    if (mappingValue != null) {
-                        User user = callbackQuery.from();
-                        client = nvl(Db.readClient(user.id()), Client.from(user));
-                        Db.delClientExpect(client);
-                        mappingValue.method.invoke(this, client, callbackQuery, query);
-                    } else {
-                        logger.info(TAG_CLASS, "Unknown callback: " + query);
-                    }
-                } else if (message != null) {
-                    User user = message.from();
-                    client = nvl(Db.readClient(user.id()), Client.from(user));
-                    if (message.entities() != null) { // Command
-                        Db.delClientExpect(client);
-                        for (MessageEntity messageEntity : message.entities()) {
-                            if (messageEntity.type() == MessageEntity.Type.bot_command) {
-                                String cmd = message.text().substring(messageEntity.offset() + 1, messageEntity.length());
-                                MappingValue mappingValue = cmdWorkers.get(new MappingKey(cmd));
-                                if (mappingValue != null) {
-                                    mappingValue.method.invoke(this, client, message);
-                                } else {
-                                    logger.info(TAG_CLASS, "Unknown value: " + cmd);
-                                }
-                            }
-                        }
-                    } else { // Reply
-                        Expect expect = Db.getClientExpect(client);
-                        Db.delClientExpect(client);
-                        if (expect != null) {
-                            MappingValue mappingValue = replyWorkers.get(new MappingKey(expect));
-                            if (mappingValue != null) {
-                                mappingValue.method.invoke(this, client, message);
-                            }
-                        } else {
-                            logger.info(TAG_CLASS, "Unexpected reply: " + message.text());
-                        }
-                    }
-                }
-                if (client != null && client.isModified()) {
-                    Db.writeClient(client);
-                }
-            } catch (InvocationTargetException e) {
-                logger.error(TAG_CLASS, "Internal exception", e);
-            } catch (Exception e) {
-                logger.error(TAG_CLASS, "Reflexive call failed", e);
+            if (cfg.isParallelMode()) {
+                updateDispatcher.submit(update);
+            } else {
+                processUpdate(update);
             }
         }
-
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
+    }
+
+    private void processUpdate(Update update) {
+        Message message = update.message();
+        CallbackQuery callbackQuery = update.callbackQuery();
+
+        try {
+            Client client = null;
+            if (callbackQuery != null) {
+                List<String> query = Arrays.asList(callbackQuery.data().split(" "));
+                MappingValue mappingValue = cbWorkers.get(new MappingKey(query.get(0)));
+                if (mappingValue != null) {
+                    User user = callbackQuery.from();
+                    client = nvl(Db.readClient(user.id()), Client.from(user));
+                    Db.delClientExpect(client);
+                    mappingValue.method.invoke(this, client, callbackQuery, query);
+                } else {
+                    logger.info(TAG_CLASS, "Unknown callback: " + query);
+                }
+            } else if (message != null) {
+                User user = message.from();
+                client = nvl(Db.readClient(user.id()), Client.from(user));
+                if (message.entities() != null) { // Command
+                    Db.delClientExpect(client);
+                    for (MessageEntity messageEntity : message.entities()) {
+                        if (messageEntity.type() == MessageEntity.Type.bot_command) {
+                            String cmd = message.text().substring(messageEntity.offset() + 1, messageEntity.length());
+                            MappingValue mappingValue = cmdWorkers.get(new MappingKey(cmd));
+                            if (mappingValue != null) {
+                                mappingValue.method.invoke(this, client, message);
+                            } else {
+                                logger.info(TAG_CLASS, "Unknown value: " + cmd);
+                            }
+                        }
+                    }
+                } else { // Reply
+                    Expect expect = Db.getClientExpect(client);
+                    Db.delClientExpect(client);
+                    if (expect != null) {
+                        MappingValue mappingValue = replyWorkers.get(new MappingKey(expect));
+                        if (mappingValue != null) {
+                            mappingValue.method.invoke(this, client, message);
+                        }
+                    } else {
+                        logger.info(TAG_CLASS, "Unexpected reply: " + message.text());
+                    }
+                }
+            }
+            if (client != null && client.isModified()) {
+                Db.writeClient(client);
+            }
+        } catch (InvocationTargetException e) {
+            logger.error(TAG_CLASS, "Internal exception", e);
+        } catch (Exception e) {
+            logger.error(TAG_CLASS, "Reflexive call failed", e);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -150,7 +164,7 @@ public class EtherListener implements UpdatesListener {
     @SuppressWarnings("unused")
     @Reply(Expect.OPERATOR_PASSWORD)
     private void operatorReply(Client client, Message message) {
-        if (Objects.equals(cfg.getOperatorPassword(), message.text())) {
+        if (Objects.equals(cfg.getOperatorPassword(), Misc.nvl(message.text(), ""))) {
             Db.addOperator(message.chat().id());
             String msgBody = res.str(client.getLangCode(), "operator_mode_enabled");
             SendMessage request = new SendMessage(message.from().id(), msgBody)
@@ -312,7 +326,7 @@ public class EtherListener implements UpdatesListener {
     @SuppressWarnings("unused")
     @Callback({"on_lang_lang", "on_settings_lang"})
     private void langLang(Client client, CallbackQuery query, List<String> args) {
-        if (args!= null && !args.isEmpty()) {
+        if (args!= null && args.size() > 1) {
             client.setLangCode(args.get(1));
         }
         String msgBody = res.str(client.getLangCode(), "lang_message");
@@ -335,10 +349,10 @@ public class EtherListener implements UpdatesListener {
     }
 
     private static class MappingKey {
-        private String value;
+        private Object value;
 
         private MappingKey(Object value) {
-            this.value = value.toString();
+            this.value = value;
         }
 
         @Override
@@ -374,5 +388,50 @@ public class EtherListener implements UpdatesListener {
         NEW_WALLET_ID,
         PAY_AMOUNT,
         OPERATOR_PASSWORD
+    }
+
+    private class UpdateDispatcher {
+        private HandlersMap handlers = new HandlersMap();
+        private Map<Long,Long> timeKeeper = new HashMap<>();
+
+        private static final long TTL = 10_800_000L;
+
+        private final Marker TAG_CLASS = MarkerManager.getMarker(UpdateDispatcher.class.getSimpleName());
+
+        void submit(Update update) {
+            Long chatId = (update.callbackQuery() != null ? update.callbackQuery().message() : update.message()).chat().id();
+            handlers.putIfAbsent(chatId, Executors.newSingleThreadScheduledExecutor(new DispatcherThreadFactory(chatId)));
+            handlers.get(chatId).submit(() -> EtherListener.this.processUpdate(update));
+            timeKeeper.put(chatId, System.currentTimeMillis());
+        }
+
+        private class DispatcherThreadFactory implements ThreadFactory {
+            private Long chatId;
+
+            DispatcherThreadFactory(Long chatId) {
+                this.chatId = chatId;
+            }
+
+            @Override
+            public Thread newThread(Runnable r) {
+                return new Thread(r, String.format("chat_handler[%d]", chatId));
+            }
+        }
+
+        private class HandlersMap extends LinkedHashMap<Long,ExecutorService> {
+            HandlersMap() {
+                super(16, 0.75f, true);
+            }
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Long, ExecutorService> eldest) {
+                if (System.currentTimeMillis() - timeKeeper.get(eldest.getKey()) > TTL) {
+                    logger.info(TAG_CLASS, "Remove stale executor of chat " + eldest.getKey());
+                    eldest.getValue().shutdown();
+                    return true;
+                }
+                return false;
+            }
+        }
     }
 }

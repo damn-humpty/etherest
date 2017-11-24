@@ -6,7 +6,7 @@
   "supportedLang": "en,ru",
   "defaultLang": "en",
 
-  "operatorPassword": "SPECIFY",
+  "operatorPassword": null,
 
   "portRestListener": 13085,
   "restListenerPoolSize": 10,
@@ -24,5 +24,7 @@
 
   "redisHost": "127.0.0.1",
   "redisPort": 6382,
-  "clientDataExpiry": 31536000
+  "clientDataExpiry": 31536000,
+
+  "parallelMode": true
 }
