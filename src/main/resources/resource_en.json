@@ -19,7 +19,7 @@
     "payment_confirm_message": "<b>Payment details</b>\n\nPayment system: %s\nPayment amount: %f\nWallet: %s\n\nIn hac habitasse platea dictumst. In sed finibus augue. Ut nunc turpis, pellentesque eget mollis eget, luctus ac dolor. Aenean fermentum congue tortor, nec facilisis nunc porttitor feugiat. Morbi commodo justo ut ligula porttitor, sit amet viverra tortor dapibus. Praesent a libero sit amet neque dictum congue id id massa.\n\nPlease make this money transfer and tap \"I paid\" button afterwards. If you change your mind please tap \"Cancel\" to start over.",
     "payment_confirm_thanks": "<b>Thanks!</b>\n\nYour order is being processed. You will be notified about its result soon.",
     "init_message": "<b>Welcome!</b>\n\nAt vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio.",
-    "payment_detail_4oper_message": "<b>New payment confirmed</b>\n\nPayment system: %s\nPayment amount: %f\nWallet: %s"
+    "payment_detail_4oper_message": "<b>New payment confirmed</b>\n\nPayment system: %s\nPayment amount: %f\nWallet: %s\nUser name: %s"
   },
   "kb": {
     "lang": [

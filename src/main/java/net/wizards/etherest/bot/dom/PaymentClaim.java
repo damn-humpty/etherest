@@ -4,7 +4,16 @@ public class PaymentClaim {
     private String walletId;
     private String paySystem;
     private Double amount;
+    private String userName;
     private Long chatId;
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
 
     public void setWalletId(String walletId) {
         this.walletId = walletId;
@@ -37,7 +46,8 @@ public class PaymentClaim {
     @Override
     public String toString() {
         return "PaymentClaim{" +
-                "chatId='" + chatId + '\'' +
+                ",userName='" + userName + '\'' +
+                ",chatId='" + chatId + '\'' +
                 ", walletId='" + walletId + '\'' +
                 ", paySystem='" + paySystem + '\'' +
                 ", amount=" + amount +

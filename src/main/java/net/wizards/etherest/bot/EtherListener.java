@@ -157,7 +157,8 @@ public class EtherListener implements UpdatesListener {
                 res.str(cfg.getDefaultLang(), "payment_detail_4oper_message"),
                 paymentClaim.getPaySystem(),
                 paymentClaim.getAmount(),
-                paymentClaim.getWalletId()
+                paymentClaim.getWalletId(),
+                paymentClaim.getUserName()
         );
         for (Long chatId : operators) {
             SendMessage request = new SendMessage(chatId, msgBody)
@@ -326,7 +327,7 @@ public class EtherListener implements UpdatesListener {
     @SuppressWarnings("unused")
     @Callback("on_payment_paid")
     private void paymentPaid(Client client, CallbackQuery query, List<String> args) {
-        Db.updateClaim(client, c -> c.setChatId(client.getChatId()));
+        Db.updateClaim(client, c -> { c.setChatId(client.getChatId()); c.setUserName(client.getUserName());});
         String msgBody = res.str(client.getLangCode(), "payment_confirm_thanks");
         logger.debug(TAG_CLASS, "Msg body from resource: " + msgBody);
         EditMessageText editMessageText =
