@@ -38,7 +38,7 @@ public class PaymentClaim {
     public String toString() {
         return "PaymentClaim{" +
                 "chatId='" + chatId + '\'' +
-                "walletId='" + walletId + '\'' +
+                ", walletId='" + walletId + '\'' +
                 ", paySystem='" + paySystem + '\'' +
                 ", amount=" + amount +
                 '}';

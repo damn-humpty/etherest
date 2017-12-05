@@ -56,7 +56,7 @@ public class EtherListener implements UpdatesListener {
             updateDispatcher = new UpdateDispatcher();
         }
     }
-
+    //TODO proper shutdown. Separate commands service etherest bot status|start|stop|reload
     private void initWorkerMappings() {
         for (final java.lang.reflect.Method method : getClass().getDeclaredMethods()) {
             if (method.isAnnotationPresent(Command.class)) {
@@ -185,6 +185,7 @@ public class EtherListener implements UpdatesListener {
     private void operatorReply(Client client, Message message) {
         if (Objects.equals(cfg.getOperatorPassword(), Misc.nvl(message.text(), ""))) {
             Db.addOperator(message.chat().id());
+            operators = Db.getOperators();
             String msgBody = res.str(client.getLangCode(), "operator_mode_enabled");
             SendMessage request = new SendMessage(message.from().id(), msgBody)
                     .parseMode(ParseMode.HTML)
@@ -252,6 +253,7 @@ public class EtherListener implements UpdatesListener {
     @Callback({"on_init_buy", "on_payment_request_back", "on_payment_cancel"})
     private void buy(Client client, CallbackQuery query, List<String> args) {
         if (Ethereum.isValidWalletId(client.getWalletId())) {
+            Db.updateClaim(client, c -> c.setWalletId(client.getWalletId()));
             String msgBody = res.str(client.getLangCode(), "pay_system_message");
             EditMessageText editMessageText =
                     new EditMessageText(query.message().chat().id(), query.message().messageId(), msgBody)
